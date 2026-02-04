@@ -1,0 +1,22 @@
+/target/
+/dist/
+
+# Data / secrets
+/data/config.toml
+/data/token.json
+/data/*.json
+/data/tmp/
+/data/.locks/
+
+# Logs
+logs/
+*.log
+
+# Env
+.env
+.env.*
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store

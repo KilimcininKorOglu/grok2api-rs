@@ -1,0 +1,53 @@
+[grok]
+temporary = true
+stream = true
+thinking = true
+dynamic_statsig = true
+filter_tags = ["xaiartifact","xai:tool_usage_card","grok:render"]
+timeout = 120
+base_proxy_url = ""
+asset_proxy_url = ""
+cf_clearance = ""
+use_curl_impersonate = true
+curl_impersonate = ""
+curl_path = "/root/data/curl-impersonate/curl_chrome116"
+max_retry = 3
+retry_status_codes = [401,429,403]
+
+[app]
+app_url = "http://127.0.0.1:8000"
+app_key = "grok2api"
+api_key = ""
+image_format = "url"
+video_format = "url"
+
+[token]
+auto_refresh = true
+refresh_interval_hours = 8
+fail_threshold = 5
+save_delay_ms = 500
+reload_interval_sec = 30
+
+[cache]
+enable_auto_clean = true
+limit_mb = 1024
+
+[performance]
+assets_max_concurrent = 25
+media_max_concurrent = 50
+usage_max_concurrent = 25
+assets_delete_batch_size = 10
+assets_batch_size = 10
+assets_max_tokens = 1000
+usage_batch_size = 50
+usage_max_tokens = 1000
+nsfw_max_concurrent = 10
+nsfw_batch_size = 50
+nsfw_max_tokens = 1000
+
+[downstream]
+enable_chat_completions = true
+enable_responses = true
+enable_images = true
+enable_models = true
+enable_files = true

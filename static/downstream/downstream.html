@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grok2API-rs - 下游管理</title>
+  <link rel="icon" href="/static/favicon/favicon.ico">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-sans/style.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-mono/style.css" rel="stylesheet">
+  <link href="/static/common/common.css?v=3" rel="stylesheet">
+  <link href="/static/common/toast.css" rel="stylesheet">
+</head>
+
+<body class="min-h-screen flex flex-col" style="background-color: var(--bg);">
+
+  <div id="app-header"></div>
+
+  <main class="space-y-6 flex-1 container mx-auto max-w-5xl px-6 py-8 fade-in">
+    <div class="space-y-6">
+      <div>
+          <h2 class="text-2xl font-semibold tracking-tight">下游管理</h2>
+        <p class="text-[var(--accents-4)] mt-1 text-sm">管理对外暴露的 OpenAI 兼容接口开关与说明。</p>
+      </div>
+
+      <div class="h-px bg-[var(--border)] my-6"></div>
+
+      <div id="endpoint-list" class="space-y-3">
+        <div class="text-center py-12 text-[var(--accents-4)]">加载中...</div>
+      </div>
+
+      <div class="text-xs text-[var(--accents-4)]">
+        说明：关闭后接口会返回 404。建议至少保留 /v1/models 和 /v1/chat/completions 或 /v1/responses 之一。
+      </div>
+    </div>
+  </main>
+
+  <div id="app-footer"></div>
+
+  <script src="/static/common/admin-auth.js?v=2"></script>
+  <script src="/static/common/header.js?v=4"></script>
+  <script src="/static/common/footer.js?v=3"></script>
+  <script src="/static/common/toast.js"></script>
+  <script src="/static/downstream/downstream.js?v=1"></script>
+</body>
+
+</html>

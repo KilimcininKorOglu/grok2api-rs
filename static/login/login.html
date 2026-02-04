@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grok2API-rs - 登录</title>
+  <link rel="icon" href="/static/favicon/favicon.ico">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-sans/style.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-mono/style.css" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Geist Sans', 'sans-serif'] },
+          colors: {
+            dark: '#000000',
+            light: '#ffffff',
+            subtle: '#666666',
+            border: '#e5e5e5'
+          }
+        }
+      }
+    }
+  </script>
+  <link href="/static/common/common.css?v=3" rel="stylesheet">
+  <link href="/static/login/login.css?v=1" rel="stylesheet">
+  <link href="/static/common/toast.css" rel="stylesheet">
+</head>
+
+<body class="login-body">
+  <div class="login-bg" aria-hidden="true"></div>
+
+  <div class="login-shell">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="login-brand-link">Grok2API-rs</div>
+      </div>
+      <div class="login-title">管理后台</div>
+      <div class="login-subtitle">请输入后台密码以继续</div>
+
+      <div class="login-form">
+        <input type="password" id="api-key-input" placeholder="后台密码" class="geist-input login-input">
+        <button onclick="login()" class="geist-button login-button">继续</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-footer"></div>
+
+  <script src="/static/common/admin-auth.js?v=2"></script>
+  <script src="/static/common/toast.js"></script>
+  <script src="/static/common/footer.js?v=3"></script>
+  <script src="/static/login/login.js?v=1"></script>
+</body>
+
+</html>
