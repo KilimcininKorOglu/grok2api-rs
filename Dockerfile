@@ -3,6 +3,15 @@
 FROM rust:1.86-bookworm AS builder
 WORKDIR /src
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       build-essential \
+       cmake \
+       ninja-build \
+       perl \
+       pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
 # Build dependency layer first for better cache hit rate.
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir -p src && echo 'fn main() {}' > src/main.rs
