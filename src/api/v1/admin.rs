@@ -31,6 +31,7 @@ pub fn router() -> Router {
         .route("/admin/token", get(admin_token_page))
         .route("/admin/cache", get(admin_cache_page))
         .route("/admin/downstream", get(admin_downstream_page))
+        .route("/admin/dialog", get(admin_dialog_page))
         .route("/api/v1/admin/login", post(admin_login_api))
         .route(
             "/api/v1/admin/config",
@@ -101,6 +102,10 @@ async fn admin_cache_page() -> Response {
 }
 async fn admin_downstream_page() -> Response {
     render_template("downstream/downstream.html").await
+}
+
+async fn admin_dialog_page() -> Response {
+    render_template("dialog/dialog.html").await
 }
 
 async fn admin_login_api(headers: HeaderMap) -> Result<Response, ApiError> {

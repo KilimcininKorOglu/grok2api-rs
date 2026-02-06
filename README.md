@@ -9,7 +9,7 @@
 
 - 使用 Rust + Axum 重写服务端，保持 OpenAI 兼容接口与管理后台能力。
 - 静态资源内置到二进制，支持单个二进制文件部署。
-- 上游 Grok 请求统一走 `curl-impersonate`，降低被上游拦截概率。
+- 上游 Grok 请求统一走内置 `wreq` 浏览器指纹请求链路，无需外部二进制。
 - 配置加载合并默认值，支持后台在线修改并持久化。
 
 系统首页截图：  
@@ -17,10 +17,6 @@
 
 ## 2. 安装步骤
 
-- 先下载并解压 [curl-impersonate](https://github.com/lwthiker/curl-impersonate/releases/)
-  - 官方发布页下载对应系统版本并解压。
-- 解压并在系统中配置路径
-  - 将可执行文件放入系统 PATH，或在配置中指定完整路径（如 `"/root/data/curl-impersonate/curl_chrome116"`）。
 - 配置文件给出完整的标准配置文件，并配有说明
   - 将 `config.defaults.toml` 复制为 `data/config.toml`，并按需修改。
   - 标准配置示例（含说明）：
@@ -57,12 +53,12 @@ base_proxy_url = ""
 asset_proxy_url = ""
 # Cloudflare 验证 Cookie（可留空）
 cf_clearance = ""
-# 是否启用 curl-impersonate
-use_curl_impersonate = true
-# curl-impersonate 伪装浏览器标识（如 chrome116）；为空则用可执行文件默认值
-curl_impersonate = ""
-# curl-impersonate 可执行文件路径
-curl_path = "/root/data/curl-impersonate/curl_chrome116"
+# wreq 浏览器指纹模板（例如 chrome_136 / edge_136 / firefox_136）
+wreq_emulation = "chrome_136"
+# Usage（/rest/rate-limits）专用指纹，留空则跟随 wreq_emulation
+wreq_emulation_usage = ""
+# NSFW 开启接口专用指纹，留空则跟随 wreq_emulation
+wreq_emulation_nsfw = ""
 # 最大重试次数
 max_retry = 3
 # 触发重试的状态码
@@ -118,16 +114,14 @@ enable_files = true
 ├─ grok2api-rs
 └─ data
    ├─ config.toml
-   ├─ token.json
-   └─ curl-impersonate
-      └─ curl_chrome116
+   └─ token.json
 ```
 
 ### 二进制文件部署教程（命令行）
 
 ```bash
 # 1) 准备目录
-mkdir -p grok2api-rs/data/curl-impersonate
+mkdir -p grok2api-rs/data
 
 # 2) 配置文件
 cp config.defaults.toml grok2api-rs/data/config.toml
@@ -135,11 +129,7 @@ cp config.defaults.toml grok2api-rs/data/config.toml
 # 3) Token 号池
 cp /path/to/token.json grok2api-rs/data/token.json
 
-# 4) curl-impersonate 可执行文件
-cp /path/to/curl_chrome116 grok2api-rs/data/curl-impersonate/curl_chrome116
-chmod +x grok2api-rs/data/curl-impersonate/curl_chrome116
-
-# 5) 启动服务（确保 config.toml 中 curl_path 指向上面的路径）
+# 4) 启动服务
 chmod +x grok2api-rs/grok2api-rs
 SERVER_HOST=0.0.0.0 SERVER_PORT=8000 ./grok2api-rs/grok2api-rs
 ```
@@ -241,4 +231,4 @@ sub2api 调用模型截图：
 - 新增“下游管理”页面，支持下游接口开关。  
   ![下游管理截图](docs/images/2image.png)
 - 静态资源内置，支持单文件二进制部署。
-- 上游 Grok 请求统一走 `curl-impersonate`（更稳定）。
+- 上游 Grok 请求统一走 `wreq` 浏览器指纹链路（无需外部二进制）。

@@ -1,13 +1,10 @@
 use std::pin::Pin;
-use std::process::Stdio;
 use std::sync::Arc;
+use std::time::Duration;
 
-use futures::{Stream, StreamExt};
+use futures::Stream;
 use serde_json::Value as JsonValue;
-use tokio::io::AsyncReadExt;
-use tokio::process::Command;
 use tokio::sync::Semaphore;
-use tokio_util::codec::{FramedRead, LinesCodec};
 
 use crate::core::config::get_config;
 use crate::core::exceptions::ApiError;
@@ -15,6 +12,9 @@ use crate::services::grok::assets::UploadService;
 use crate::services::grok::chat::MessageExtractor;
 use crate::services::grok::model::ModelService;
 use crate::services::grok::statsig::StatsigService;
+use crate::services::grok::wreq_client::{
+    apply_headers, body_preview, build_client, line_stream_from_response,
+};
 use crate::services::token::TokenService;
 
 const CREATE_POST_API: &str = "https://grok.com/rest/media/post/create";
@@ -83,7 +83,7 @@ impl VideoService {
         let headers = self.build_headers(token, "https://grok.com/imagine").await;
         let payload = serde_json::json!({"mediaType": "MEDIA_POST_TYPE_VIDEO", "prompt": prompt});
         let value = self
-            .curl_json(CREATE_POST_API, headers, &payload, 30)
+            .wreq_json(CREATE_POST_API, headers, &payload, 30)
             .await?;
         Ok(value
             .get("post")
@@ -98,7 +98,7 @@ impl VideoService {
         let payload =
             serde_json::json!({"mediaType": "MEDIA_POST_TYPE_IMAGE", "mediaUrl": image_url});
         let value = self
-            .curl_json(CREATE_POST_API, headers, &payload, 30)
+            .wreq_json(CREATE_POST_API, headers, &payload, 30)
             .await?;
         Ok(value
             .get("post")
@@ -165,7 +165,7 @@ impl VideoService {
             )
             .await;
         let timeout: u64 = get_config("grok.timeout", 300u64).await;
-        self.curl_stream(CHAT_API, headers, &payload, timeout).await
+        self.wreq_stream(CHAT_API, headers, &payload, timeout).await
     }
 
     async fn generate_from_image(
@@ -192,203 +192,92 @@ impl VideoService {
             )
             .await;
         let timeout: u64 = get_config("grok.timeout", 300u64).await;
-        self.curl_stream(CHAT_API, headers, &payload, timeout).await
+        self.wreq_stream(CHAT_API, headers, &payload, timeout).await
     }
 
-    async fn curl_json(
+    async fn wreq_json(
         &self,
         url: &str,
         headers: reqwest::header::HeaderMap,
         payload: &JsonValue,
         timeout: u64,
     ) -> Result<JsonValue, ApiError> {
-        let use_curl: bool = get_config("grok.use_curl_impersonate", true).await;
-        if !use_curl {
-            return Err(ApiError::upstream(
-                "curl-impersonate is required for Grok requests".to_string(),
-            ));
-        }
         let proxy: String = get_config("grok.base_proxy_url", String::new()).await;
-        let curl_path: String = get_config("grok.curl_path", "curl-impersonate".to_string()).await;
-        let impersonate: String =
-            get_config("grok.curl_impersonate", "chrome136".to_string()).await;
-        let resolved_path = if curl_path.trim().is_empty() {
-            "curl-impersonate".to_string()
-        } else {
-            curl_path
-        };
-
-        let mut cmd = Command::new(resolved_path);
-        cmd.arg("-sS")
-            .arg("--compressed")
-            .arg("--http2")
-            .arg("-X")
-            .arg("POST")
-            .arg(url)
-            .arg("--max-time")
-            .arg(timeout.to_string())
-            .arg("-w")
-            .arg("\\n%{http_code}");
-
-        if !proxy.trim().is_empty() {
-            cmd.arg("-x").arg(proxy.trim());
-        }
-
-        if !impersonate.trim().is_empty() {
-            cmd.arg("--impersonate").arg(impersonate.trim());
-        }
-
-        for (name, value) in headers.iter() {
-            let val = value.to_str().unwrap_or("");
-            cmd.arg("-H").arg(format!("{}: {}", name.as_str(), val));
-        }
-
-        cmd.arg("--data").arg(payload.to_string());
-        let output = cmd
-            .output()
+        let client = build_client(Some(&proxy), timeout).await?;
+        let response = apply_headers(client.post(url), &headers)
+            .timeout(Duration::from_secs(timeout.max(1)))
+            .body(payload.to_string())
+            .send()
             .await
-            .map_err(|e| ApiError::upstream(format!("Media curl error: {e}")))?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(ApiError::upstream(format!("Media curl failed: {stderr}")));
-        }
+            .map_err(|e| ApiError::upstream(format!("Media request failed: {e}")))?;
 
-        let mut stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        while stdout.ends_with('\n') {
-            stdout.pop();
-        }
-        let (body, code_str) = stdout.rsplit_once('\n').unwrap_or((stdout.as_str(), ""));
-        let status: u16 = code_str.trim().parse().unwrap_or(0);
+        let status = response.status().as_u16();
+        let content_type = response
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("<unknown>")
+            .to_string();
+        let body = response
+            .text()
+            .await
+            .map_err(|e| ApiError::upstream(format!("Media response read failed: {e}")))?;
+
         if status != 200 {
+            let preview = body_preview(&body, 220);
             return Err(ApiError::upstream(format!(
-                "Media request failed: {status}"
+                "Media request failed: {status}; content-type: {content_type}; body: {preview}"
             )));
         }
-        let value: JsonValue = serde_json::from_str(body)
-            .map_err(|e| ApiError::upstream(format!("Media parse error: {e}")))?;
-        Ok(value)
+
+        serde_json::from_str(&body).map_err(|e| {
+            let preview = body_preview(&body, 220);
+            ApiError::upstream(format!(
+                "Media parse error: {e}; content-type: {content_type}; body: {preview}"
+            ))
+        })
     }
 
-    async fn curl_stream(
+    async fn wreq_stream(
         &self,
         url: &str,
         headers: reqwest::header::HeaderMap,
         payload: &JsonValue,
         timeout: u64,
     ) -> Result<LineStream, ApiError> {
-        let use_curl: bool = get_config("grok.use_curl_impersonate", true).await;
-        if !use_curl {
-            return Err(ApiError::upstream(
-                "curl-impersonate is required for Grok requests".to_string(),
-            ));
-        }
         let proxy: String = get_config("grok.base_proxy_url", String::new()).await;
-        let curl_path: String = get_config("grok.curl_path", "curl-impersonate".to_string()).await;
-        let impersonate: String =
-            get_config("grok.curl_impersonate", "chrome136".to_string()).await;
-        let resolved_path = if curl_path.trim().is_empty() {
-            "curl-impersonate".to_string()
-        } else {
-            curl_path
-        };
+        let client = build_client(Some(&proxy), timeout).await?;
+        let response = apply_headers(client.post(url), &headers)
+            .timeout(Duration::from_secs(timeout.max(1)))
+            .body(payload.to_string())
+            .send()
+            .await
+            .map_err(|e| ApiError::upstream(format!("Media request failed: {e}")))?;
 
-        let mut cmd = Command::new(resolved_path);
-        cmd.arg("-sS")
-            .arg("--compressed")
-            .arg("--http2")
-            .arg("-i")
-            .arg("-N")
-            .arg("-X")
-            .arg("POST")
-            .arg(url)
-            .arg("--max-time")
-            .arg(timeout.to_string());
-
-        if !proxy.trim().is_empty() {
-            cmd.arg("-x").arg(proxy.trim());
-        }
-
-        if !impersonate.trim().is_empty() {
-            cmd.arg("--impersonate").arg(impersonate.trim());
-        }
-
-        for (name, value) in headers.iter() {
-            let val = value.to_str().unwrap_or("");
-            cmd.arg("-H").arg(format!("{}: {}", name.as_str(), val));
-        }
-
-        cmd.arg("--data").arg(payload.to_string());
-        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
-        let mut child = cmd
-            .spawn()
-            .map_err(|e| ApiError::upstream(format!("Media curl error: {e}")))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| ApiError::upstream("Media curl stdout unavailable".to_string()))?;
-        let mut stderr = child.stderr.take();
-
-        let mut lines = FramedRead::new(stdout, LinesCodec::new());
-        let mut status: Option<u16> = None;
-        loop {
-            match lines.next().await {
-                Some(Ok(line)) => {
-                    if line.starts_with("HTTP/") {
-                        status = line
-                            .split_whitespace()
-                            .nth(1)
-                            .and_then(|v| v.parse::<u16>().ok());
-                        continue;
-                    }
-                    if line.is_empty() {
-                        if status == Some(100) {
-                            status = None;
-                            continue;
-                        }
-                        if status.is_some() {
-                            break;
-                        }
-                    }
-                }
-                Some(Err(e)) => {
-                    return Err(ApiError::upstream(format!("Media curl read error: {e}")));
-                }
-                None => {
-                    return Err(ApiError::upstream("Media curl response empty".to_string()));
-                }
-            }
-        }
-
-        let status_code = status.unwrap_or(0);
+        let status_code = response.status().as_u16();
         if status_code != 200 {
-            if let Some(mut err) = stderr.take() {
-                let mut buf = Vec::new();
-                let _ = err.read_to_end(&mut buf).await;
-                if !buf.is_empty() {
-                    let msg = String::from_utf8_lossy(&buf);
-                    tracing::warn!("Media curl stderr: {msg}");
-                }
+            let content_type = response
+                .headers()
+                .get("content-type")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("<unknown>")
+                .to_string();
+            let body = response.text().await.unwrap_or_else(|_| String::new());
+            let preview = body_preview(&body, 220);
+            if !preview.is_empty() {
+                tracing::warn!(
+                    "Media error status={} content_type={} body={}",
+                    status_code,
+                    content_type,
+                    preview
+                );
             }
-            let _ = child.wait().await;
             return Err(ApiError::upstream(format!(
-                "Media request failed: {status_code}"
+                "Media request failed: {status_code}; content-type: {content_type}; body: {preview}"
             )));
         }
 
-        tokio::spawn(async move {
-            if let Some(mut err) = stderr.take() {
-                let mut buf = Vec::new();
-                let _ = err.read_to_end(&mut buf).await;
-                if !buf.is_empty() {
-                    let msg = String::from_utf8_lossy(&buf);
-                    tracing::warn!("Media curl stderr: {msg}");
-                }
-            }
-            let _ = child.wait().await;
-        });
-
-        let stream = lines.filter_map(|line| async move { line.ok() });
-        Ok(Box::pin(stream))
+        Ok(line_stream_from_response(response))
     }
 
     pub async fn completions(

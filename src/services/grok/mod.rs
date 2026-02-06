@@ -10,3 +10,4 @@ pub mod processor;
 pub mod retry;
 pub mod statsig;
 pub mod usage;
+pub mod wreq_client;

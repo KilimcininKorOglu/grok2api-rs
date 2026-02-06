@@ -9,7 +9,6 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as JsonValue, json};
 use sha1::{Digest, Sha1};
-use tokio::process::Command;
 use tokio::sync::{Mutex, mpsc};
 use tokio::time::{Instant, timeout};
 use tokio_tungstenite::connect_async;
@@ -391,28 +390,14 @@ fn is_final_image(url: &str, blob_size: usize) -> bool {
 }
 
 async fn verify_age(token: &str) -> bool {
-    let use_curl: bool = get_config("grok.use_curl_impersonate", true).await;
-    if !use_curl {
-        tracing::warn!("[ImagineNSFW] curl-impersonate disabled; skip age verify");
-        return false;
-    }
-
     let cf_clearance: String = get_config("grok.cf_clearance", String::new()).await;
     if cf_clearance.trim().is_empty() {
         tracing::warn!("[ImagineNSFW] cf_clearance not configured; skip age verify");
         return false;
     }
 
-    let curl_path: String = get_config("grok.curl_path", "curl".to_string()).await;
-    let impersonate: String = get_config("grok.curl_impersonate", "chrome133a".to_string()).await;
     let timeout_secs: u64 = get_config("grok.timeout", 120u64).await;
     let proxy: String = get_config("grok.base_proxy_url", String::new()).await;
-
-    let resolved_path = if curl_path.trim().is_empty() {
-        "curl".to_string()
-    } else {
-        curl_path
-    };
 
     let raw = sanitize_token(token);
     let cookie = format!(
@@ -420,67 +405,54 @@ async fn verify_age(token: &str) -> bool {
         cf_clearance.trim()
     );
 
-    let mut cmd = Command::new(resolved_path);
-    cmd.arg("-sS")
-        .arg("--compressed")
-        .arg("--http2")
-        .arg("-X")
-        .arg("POST")
-        .arg(AGE_VERIFY_URL)
-        .arg("--max-time")
-        .arg(timeout_secs.to_string())
-        .arg("-w")
-        .arg("\\n%{http_code}")
-        .arg("-H")
-        .arg("User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
-        .arg("-H")
-        .arg("Origin: https://grok.com")
-        .arg("-H")
-        .arg("Referer: https://grok.com/")
-        .arg("-H")
-        .arg("Accept: */*")
-        .arg("-H")
-        .arg(format!("Cookie: {cookie}"))
-        .arg("-H")
-        .arg("Content-Type: application/json")
-        .arg("--data")
-        .arg(r#"{"birthDate":"2001-01-01T16:00:00.000Z"}"#);
+    let client =
+        match crate::services::grok::wreq_client::build_client(Some(&proxy), timeout_secs).await {
+            Ok(v) => v,
+            Err(err) => {
+                tracing::warn!("[ImagineNSFW] build wreq client failed: {err}");
+                return false;
+            }
+        };
 
-    if !proxy.trim().is_empty() {
-        cmd.arg("-x").arg(proxy.trim());
-    }
-    if !impersonate.trim().is_empty() {
-        cmd.arg("--impersonate").arg(impersonate.trim());
-    }
-
-    let output = match cmd.output().await {
-        Ok(out) => out,
+    let response = match client
+        .post(AGE_VERIFY_URL)
+        .timeout(Duration::from_secs(timeout_secs.max(1)))
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
+        .header("Origin", "https://grok.com")
+        .header("Referer", "https://grok.com/")
+        .header("Accept", "*/*")
+        .header("Cookie", cookie)
+        .header("Content-Type", "application/json")
+        .body(r#"{"birthDate":"2001-01-01T16:00:00.000Z"}"#)
+        .send()
+        .await
+    {
+        Ok(v) => v,
         Err(err) => {
-            tracing::warn!("[ImagineNSFW] age verify curl spawn failed: {err}");
+            tracing::warn!("[ImagineNSFW] age verify request failed: {err}");
             return false;
         }
     };
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        tracing::warn!("[ImagineNSFW] age verify failed: {stderr}");
-        return false;
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let status = stdout
-        .lines()
-        .last()
-        .unwrap_or("")
-        .trim()
-        .parse::<u16>()
-        .unwrap_or(0);
-
+    let status = response.status().as_u16();
     if status == 200 {
         tracing::info!("[ImagineNSFW] age verify success");
         true
     } else {
-        tracing::warn!("[ImagineNSFW] age verify status={status}");
+        let content_type = response
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("<unknown>")
+            .to_string();
+        let body = response.text().await.unwrap_or_else(|_| String::new());
+        let preview = crate::services::grok::wreq_client::body_preview(&body, 220);
+        tracing::warn!(
+            "[ImagineNSFW] age verify status={} content_type={} body={}",
+            status,
+            content_type,
+            preview
+        );
         false
     }
 }

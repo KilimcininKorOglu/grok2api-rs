@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::time::{Duration, Instant};
 
 use base64::Engine;
@@ -7,8 +6,6 @@ use fs2::FileExt;
 use reqwest::Client;
 use serde_json::Value as JsonValue;
 use sha1::Digest;
-use tokio::io::AsyncWriteExt;
-use tokio::process::Command;
 use tokio::sync::Mutex;
 use url::Url;
 use uuid::Uuid;
@@ -24,41 +21,7 @@ const DOWNLOAD_API: &str = "https://assets.grok.com";
 
 const DEFAULT_MIME: &str = "application/octet-stream";
 
-fn parse_header_block(block: &[u8]) -> Vec<(String, String)> {
-    let text = String::from_utf8_lossy(block);
-    let mut headers = Vec::new();
-    for line in text.lines() {
-        if line.starts_with("HTTP/") {
-            continue;
-        }
-        if let Some((k, v)) = line.split_once(':') {
-            headers.push((k.trim().to_string(), v.trim().to_string()));
-        }
-    }
-    headers
-}
-
-fn split_headers_body(data: &[u8]) -> (Vec<(String, String)>, Vec<u8>) {
-    let needle = b"\r\n\r\n";
-    if data.len() < needle.len() {
-        return (Vec::new(), data.to_vec());
-    }
-    let mut idx = data.len().saturating_sub(needle.len());
-    loop {
-        if &data[idx..idx + needle.len()] == needle {
-            let headers = parse_header_block(&data[..idx]);
-            let body = data[idx + needle.len()..].to_vec();
-            return (headers, body);
-        }
-        if idx == 0 {
-            break;
-        }
-        idx -= 1;
-    }
-    (Vec::new(), data.to_vec())
-}
-
-async fn curl_request(
+async fn wreq_request(
     proxy: &str,
     timeout: u64,
     method: &str,
@@ -67,94 +30,36 @@ async fn curl_request(
     body: Option<&[u8]>,
     capture_headers: bool,
 ) -> Result<(u16, Vec<(String, String)>, Vec<u8>), ApiError> {
-    let use_curl: bool = get_config("grok.use_curl_impersonate", true).await;
-    if !use_curl {
-        return Err(ApiError::upstream(
-            "curl-impersonate is required for Grok requests".to_string(),
-        ));
-    }
-    let curl_path: String = get_config("grok.curl_path", "curl-impersonate".to_string()).await;
-    let impersonate: String = get_config("grok.curl_impersonate", "chrome136".to_string()).await;
-    let resolved_path = if curl_path.trim().is_empty() {
-        "curl-impersonate".to_string()
-    } else {
-        curl_path
-    };
+    let client = crate::services::grok::wreq_client::build_client(Some(proxy), timeout).await?;
+    let method = wreq::Method::from_bytes(method.as_bytes())
+        .map_err(|e| ApiError::upstream(format!("Invalid HTTP method `{method}`: {e}")))?;
 
-    let mut cmd = Command::new(resolved_path);
-    cmd.arg("-sS")
-        .arg("--compressed")
-        .arg("--http2")
-        .arg("-X")
-        .arg(method)
-        .arg(url)
-        .arg("--max-time")
-        .arg(timeout.to_string())
-        .arg("-w")
-        .arg("\\n%{http_code}");
-
-    if capture_headers {
-        cmd.arg("-i");
-    }
-
-    if !proxy.trim().is_empty() {
-        cmd.arg("-x").arg(proxy.trim());
-    }
-
-    if !impersonate.trim().is_empty() {
-        cmd.arg("--impersonate").arg(impersonate.trim());
-    }
-
-    for (name, value) in headers.iter() {
-        let val = value.to_str().unwrap_or("");
-        cmd.arg("-H").arg(format!("{}: {}", name.as_str(), val));
-    }
-
-    if body.is_some() {
-        cmd.arg("--data-binary").arg("@-");
-        cmd.stdin(Stdio::piped());
-    }
-
-    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| ApiError::upstream(format!("Curl error: {e}")))?;
+    let mut request =
+        crate::services::grok::wreq_client::apply_headers(client.request(method, url), headers)
+            .timeout(Duration::from_secs(timeout.max(1)));
 
     if let Some(payload) = body {
-        if let Some(mut stdin) = child.stdin.take() {
-            stdin
-                .write_all(payload)
-                .await
-                .map_err(|e| ApiError::upstream(format!("Curl stdin error: {e}")))?;
-        }
+        request = request.body(payload.to_vec());
     }
 
-    let output = child
-        .wait_with_output()
+    let response = request
+        .send()
         .await
-        .map_err(|e| ApiError::upstream(format!("Curl wait error: {e}")))?;
+        .map_err(|e| ApiError::upstream(format!("wreq request failed: {e}")))?;
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(ApiError::upstream(format!("Curl failed: {stderr}")));
-    }
-
-    let stdout = output.stdout;
-    let split = stdout.iter().rposition(|b| *b == b'\n');
-    let (data, code_bytes) = match split {
-        Some(idx) => (&stdout[..idx], &stdout[idx + 1..]),
-        None => (stdout.as_slice(), &stdout[..0]),
-    };
-    let status: u16 = std::str::from_utf8(code_bytes)
-        .unwrap_or("")
-        .trim()
-        .parse()
-        .unwrap_or(0);
-    let (parsed_headers, body_bytes) = if capture_headers {
-        split_headers_body(data)
+    let status = response.status().as_u16();
+    let parsed_headers = if capture_headers {
+        crate::services::grok::wreq_client::headers_to_pairs(response.headers())
     } else {
-        (Vec::new(), data.to_vec())
+        Vec::new()
     };
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .map_err(|e| ApiError::upstream(format!("wreq response read failed: {e}")))?
+        .to_vec();
+
     Ok((status, parsed_headers, body_bytes))
 }
 
@@ -399,7 +304,7 @@ impl UploadService {
             "content": b64,
         });
         let body = payload.to_string();
-        let (status, _resp_headers, resp_body) = curl_request(
+        let (status, _resp_headers, resp_body) = wreq_request(
             &self.base.proxy,
             self.base.timeout,
             "POST",
@@ -411,8 +316,10 @@ impl UploadService {
         .await?;
 
         if status == 200 {
-            let value: JsonValue = serde_json::from_slice(&resp_body)
-                .map_err(|e| ApiError::upstream(format!("Upload parse error: {e}")))?;
+            let value: JsonValue = serde_json::from_slice(&resp_body).map_err(|e| {
+                let preview = crate::services::grok::wreq_client::body_preview_from_bytes(&resp_body, 220);
+                ApiError::upstream(format!("Upload parse error: {e}; body: {preview}"))
+            })?;
             let file_id = value
                 .get("fileMetadataId")
                 .and_then(|v| v.as_str())
@@ -425,7 +332,10 @@ impl UploadService {
                 .to_string();
             return Ok((file_id, file_uri));
         }
-        Err(ApiError::upstream(format!("Upload failed: {status}")))
+        let preview = crate::services::grok::wreq_client::body_preview_from_bytes(&resp_body, 220);
+        Err(ApiError::upstream(format!(
+            "Upload failed: {status}; body: {preview}"
+        )))
     }
 }
 
@@ -473,7 +383,7 @@ impl ListService {
                 }
             }
             let url = url.to_string();
-            let (status, _resp_headers, resp_body) = curl_request(
+            let (status, _resp_headers, resp_body) = wreq_request(
                 &self.base.proxy,
                 self.base.timeout,
                 "GET",
@@ -484,10 +394,15 @@ impl ListService {
             )
             .await?;
             if status != 200 {
-                return Err(ApiError::upstream(format!("List failed: {status}")));
+                let preview = crate::services::grok::wreq_client::body_preview_from_bytes(&resp_body, 220);
+                return Err(ApiError::upstream(format!(
+                    "List failed: {status}; body: {preview}"
+                )));
             }
-            let value: JsonValue = serde_json::from_slice(&resp_body)
-                .map_err(|e| ApiError::upstream(format!("List parse error: {e}")))?;
+            let value: JsonValue = serde_json::from_slice(&resp_body).map_err(|e| {
+                let preview = crate::services::grok::wreq_client::body_preview_from_bytes(&resp_body, 220);
+                ApiError::upstream(format!("List parse error: {e}; body: {preview}"))
+            })?;
             let page_assets = value
                 .get("assets")
                 .and_then(|v| v.as_array())
@@ -529,7 +444,7 @@ impl DeleteService {
     pub async fn delete(&self, token: &str, asset_id: &str) -> Result<bool, ApiError> {
         let headers = self.base.headers(token, "https://grok.com/files").await;
         let url = format!("{DELETE_API}/{asset_id}");
-        let (status, _resp_headers, _resp_body) = curl_request(
+        let (status, _resp_headers, resp_body) = wreq_request(
             &self.base.proxy,
             self.base.timeout,
             "DELETE",
@@ -542,7 +457,10 @@ impl DeleteService {
         if status == 200 {
             return Ok(true);
         }
-        Err(ApiError::upstream(format!("Delete failed: {status}")))
+        let preview = crate::services::grok::wreq_client::body_preview_from_bytes(&resp_body, 220);
+        Err(ApiError::upstream(format!(
+            "Delete failed: {status}; body: {preview}"
+        )))
     }
 
     pub async fn delete_all(&self, token: &str) -> Result<JsonValue, ApiError> {
@@ -632,7 +550,7 @@ impl DownloadService {
         }
         let url = format!("{DOWNLOAD_API}{path}");
         let headers = self.base.dl_headers(token, &path).await;
-        let (status, resp_headers, resp_body) = curl_request(
+        let (status, resp_headers, resp_body) = wreq_request(
             &self.base.proxy,
             self.base.timeout,
             "GET",
@@ -643,7 +561,11 @@ impl DownloadService {
         )
         .await?;
         if status != 200 {
-            return Err(ApiError::upstream(format!("Download failed: {status}")));
+            let content_type = header_value(&resp_headers, "content-type").unwrap_or_else(|| "<unknown>".to_string());
+            let preview = crate::services::grok::wreq_client::body_preview_from_bytes(&resp_body, 220);
+            return Err(ApiError::upstream(format!(
+                "Download failed: {status}; content-type: {content_type}; body: {preview}"
+            )));
         }
         let mime = header_value(&resp_headers, "content-type")
             .and_then(|v| v.split(';').next().map(|s| s.to_string()))
