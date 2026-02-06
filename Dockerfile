@@ -18,11 +18,11 @@ RUN apt-get update \
 # Build dependency layer first for better cache hit rate.
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir -p src && echo 'fn main() {}' > src/main.rs
-RUN cargo build --release && rm -rf src
+RUN LIBCLANG_PATH="$(llvm-config --libdir)" cargo build --release && rm -rf src
 
 # Build application.
 COPY . .
-RUN cargo build --release
+RUN LIBCLANG_PATH="$(llvm-config --libdir)" cargo build --release
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
