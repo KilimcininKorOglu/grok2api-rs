@@ -137,6 +137,49 @@ SERVER_HOST=0.0.0.0 SERVER_PORT=8000 ./grok2api-rs/grok2api-rs
 系统部署执行截图：  
 ![系统部署执行截图](docs/images/7image.png)
 
+### Docker 快捷部署（推荐）
+
+```bash
+# 1) 拉取项目
+git clone https://github.com/XeanYu/grok2api-rs.git
+cd grok2api-rs
+
+# 2) 准备数据目录
+mkdir -p data
+cp config.defaults.toml data/config.toml
+
+# 3) 准备 token 池（至少放 1 个可用 ssoBasic）
+cat > data/token.json <<'JSON'
+{
+  "ssoBasic": []
+}
+JSON
+
+# 4) 启动（默认拉取 GHCR 最新镜像）
+docker compose pull
+docker compose up -d
+
+# 5) 查看日志
+docker compose logs -f
+```
+
+如果你想本地构建镜像再运行：
+
+```bash
+docker build -t grok2api-rs:local .
+IMAGE=grok2api-rs:local docker compose up -d
+```
+
+> 默认管理端地址：`http://127.0.0.1:8000/admin`，默认后台密码在 `data/config.toml` 的 `app.app_key`。
+
+### GitHub 自动发布 Docker 镜像
+
+仓库已提供 `.github/workflows/docker-publish.yml`：
+
+- 推送到 `main`：自动发布 `ghcr.io/<owner>/grok2api-rs:latest`
+- 推送标签（如 `v1.0.0`）：自动发布同名 tag 镜像
+- 同时构建 `linux/amd64` 与 `linux/arm64`
+
 ### 项目编译教程（命令行）
 
 ```bash
@@ -222,7 +265,7 @@ sub2api 调用模型截图：
 ## 3. 与原项目相比缺失的内容
 
 - 仅支持本地存储（`SERVER_STORAGE_TYPE` 其他值会降级并提示）。
-- 未提供 Docker / docker-compose 部署脚本（如需可自行补充）。
+- 暂未提供多节点/分布式部署能力（当前以单实例部署为主）。
 
 ## 4. 与原项目相比新增的内容
 
@@ -232,3 +275,4 @@ sub2api 调用模型截图：
   ![下游管理截图](docs/images/2image.png)
 - 静态资源内置，支持单文件二进制部署。
 - 上游 Grok 请求统一走 `wreq` 浏览器指纹链路（无需外部二进制）。
+- 新增 Docker 部署方案与 GHCR 自动构建发布工作流。
