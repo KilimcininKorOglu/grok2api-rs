@@ -15,14 +15,10 @@ RUN apt-get update \
        llvm-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Build dependency layer first for better cache hit rate.
-COPY Cargo.toml Cargo.lock ./
-RUN mkdir -p src && echo 'fn main() {}' > src/main.rs
-RUN LIBCLANG_PATH="$(llvm-config --libdir)" cargo build --release && rm -rf src
-
 # Build application.
 COPY . .
-RUN LIBCLANG_PATH="$(llvm-config --libdir)" cargo build --release
+RUN LIBCLANG_PATH="$(llvm-config --libdir)" cargo build --release \
+    && test "$(stat -c%s target/release/grok2api-rs)" -gt 5000000
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
