@@ -161,7 +161,7 @@ impl StreamProcessor {
                         }
                         let idx = img.get("imageIndex").and_then(|v| v.as_i64()).unwrap_or(0) + 1;
                         let progress = img.get("progress").and_then(|v| v.as_i64()).unwrap_or(0);
-                        let msg = format!("正在生成第{idx}张图片中，当前进度{progress}%\n");
+                        let msg = format!("Generating image {idx}, current progress {progress}%\n");
                         let id = self.response_id.clone().unwrap_or_else(|| format!("chatcmpl-{}", uuid::Uuid::new_v4().simple()));
                         let chunk = self.base.sse_chunk(&id, &self.fingerprint, Some(&msg), None, None);
                         yield Ok(Bytes::from(chunk));
@@ -396,7 +396,7 @@ impl VideoStreamProcessor {
                             self.think_opened = true;
                             yield Ok(Bytes::from(chunk));
                         }
-                        let msg = format!("正在生成视频中，当前进度{progress}%\n");
+                        let msg = format!("Generating video, current progress {progress}%\n");
                         let id = self.response_id.clone().unwrap_or_else(|| format!("chatcmpl-{}", uuid::Uuid::new_v4().simple()));
                         let chunk = self.base.sse_chunk(&id, "", Some(&msg), None, None);
                         yield Ok(Bytes::from(chunk));

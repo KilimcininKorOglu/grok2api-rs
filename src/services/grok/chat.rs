@@ -75,7 +75,7 @@ impl MessageExtractor {
                             "input_audio" => {
                                 if is_video {
                                     return Err(ApiError::invalid_request(
-                                        "视频模型不支持 input_audio 类型",
+                                        "Video model does not support input_audio type",
                                     ));
                                 }
                                 if let Some(audio_obj) = item.get("input_audio") {
@@ -96,7 +96,7 @@ impl MessageExtractor {
                             "file" => {
                                 if is_video {
                                     return Err(ApiError::invalid_request(
-                                        "视频模型不支持 file 类型",
+                                        "Video model does not support file type",
                                     ));
                                 }
                                 if let Some(file_obj) = item.get("file") {

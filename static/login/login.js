@@ -23,10 +23,10 @@ async function login() {
       await storeAppKey(input);
       window.location.href = '/admin/token';
     } else {
-      showToast('密钥无效', 'error');
+      showToast('Invalid key', 'error');
     }
   } catch (e) {
-    showToast('连接失败', 'error');
+    showToast('Connection failed', 'error');
   }
 }
 

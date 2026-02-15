@@ -7,42 +7,42 @@ const ENDPOINTS = [
     name: 'Chat Completions',
     method: 'POST',
     path: '/v1/chat/completions',
-    desc: 'OpenAI Chat Completions 兼容接口'
+    desc: 'OpenAI Chat Completions compatible endpoint'
   },
   {
     key: 'enable_responses',
     name: 'Responses API',
     method: 'POST',
     path: '/v1/responses',
-    desc: 'OpenAI Responses API 兼容接口'
+    desc: 'OpenAI Responses API compatible endpoint'
   },
   {
     key: 'enable_images',
     name: 'Images Generations',
     method: 'POST',
     path: '/v1/images/generations',
-    desc: '图片生成接口'
+    desc: 'Image generation endpoint'
   },
   {
     key: 'enable_images_nsfw',
     name: 'Images NSFW',
     method: 'POST',
     path: '/v1/images/generations/nsfw',
-    desc: 'NSFW 专用图片生成接口（会自动尝试开启 Token 的 NSFW 开关）'
+    desc: 'NSFW image generation endpoint (auto-enables NSFW on tokens)'
   },
   {
     key: 'enable_models',
     name: 'Models',
     method: 'GET',
     path: '/v1/models',
-    desc: '模型列表接口'
+    desc: 'Model list endpoint'
   },
   {
     key: 'enable_files',
     name: 'Files',
     method: 'GET',
     path: '/v1/files/image/*, /v1/files/video/*',
-    desc: '缓存文件访问接口'
+    desc: 'Cached file access endpoint'
   }
 ];
 
@@ -56,7 +56,7 @@ async function fetchConfig() {
     headers: { Authorization: apiKey }
   });
   if (!res.ok) {
-    throw new Error('加载配置失败');
+    throw new Error('Failed to load config');
   }
   return res.json();
 }
@@ -71,7 +71,7 @@ async function updateConfigPatch(patch) {
     body: JSON.stringify(patch)
   });
   if (!res.ok) {
-    throw new Error('更新失败');
+    throw new Error('Update failed');
   }
   const data = await res.json();
   return data;
@@ -97,7 +97,7 @@ function renderList() {
         <div class="flex items-center gap-2">
           <span class="font-medium">${item.name}</span>
           <span class="text-[10px] px-2 py-0.5 rounded-full ${enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-100 text-zinc-500'}">
-            ${enabled ? '已启用' : '已关闭'}
+            ${enabled ? 'Enabled' : 'Disabled'}
           </span>
         </div>
         <div class="text-xs text-[var(--accents-4)]">${item.method} ${item.path}</div>
@@ -122,10 +122,10 @@ function renderList() {
         if (!currentConfig.downstream) currentConfig.downstream = {};
         currentConfig.downstream[key] = value;
         renderList();
-        showToast('已更新');
+        showToast('Updated');
       } catch (err) {
         e.target.checked = !value;
-        showToast('更新失败', 'error');
+        showToast('Update failed', 'error');
       }
     });
   });
@@ -139,7 +139,7 @@ async function init() {
     renderList();
   } catch (e) {
     const container = byId('endpoint-list');
-    if (container) container.innerHTML = '<div class="text-center py-12 text-[var(--accents-4)]">加载失败</div>';
+    if (container) container.innerHTML = '<div class="text-center py-12 text-[var(--accents-4)]">Load failed</div>';
   }
 }
 

@@ -1,52 +1,52 @@
 # Grok2API-rs
 
-> 本项目基于 [grok2api](https://github.com/chenyme/grok2api) 重构。
+> This project is based on [grok2api](https://github.com/chenyme/grok2api) refactored in Rust.
 
 > [!NOTE]
-> 仅供学习与研究。请遵守 Grok 服务条款与当地法律法规。
+> For learning and research purposes only. Please comply with Grok's Terms of Service and local laws and regulations.
 
-## 项目简介
+## Overview
 
-`Grok2API-rs` 是一个 Rust 实现的 Grok 转 OpenAI 兼容网关，包含管理后台（Token、配置、缓存、下游开关、对话调试）。
+`Grok2API-rs` is a Rust implementation of a Grok to OpenAI-compatible API gateway, featuring an admin dashboard (Token management, Configuration, Cache, Downstream controls, Dialog debugging).
 
-- 后端：Rust + Axum
-- 部署：单二进制 / Docker
-- 上游请求：统一使用内置 `wreq`（不依赖外部 `curl-impersonate`）
-- 接口：`/v1/chat/completions`、`/v1/responses`、`/v1/images/generations`、`/v1/images/generations/nsfw` 等
+- Backend: Rust + Axum
+- Deployment: Single binary / Docker
+- Upstream requests: Uses built-in `wreq` (no external `curl-impersonate` dependency)
+- Endpoints: `/v1/chat/completions`, `/v1/responses`, `/v1/images/generations`, `/v1/images/generations/nsfw`, etc.
 
-系统首页截图：  
-![系统首页截图](docs/images/1image.png)
+System homepage screenshot:  
+![System homepage screenshot](docs/images/1image.png)
 
-## v0.2.0 更新内容
+## v0.2.0 Updates
 
-- NSFW 开启链路稳态修复（含失败回退与错误明细）。
-- 新增管理后台「对话」页面（支持 Chat / Responses / Images / Images NSFW）。
-- 对话页面支持 SSE 流式、Markdown 渲染、图片（URL/Base64）展示。
-- 新增「下游管理」页面，可按接口开关暴露下游 API。
-- 提供 Docker 部署方案与 GHCR 自动发布工作流。
+- NSFW link chain stability fix (including failure fallback and error details).
+- New admin dashboard "Dialog" page (supports Chat / Responses / Images / Images NSFW).
+- Dialog page supports SSE streaming, Markdown rendering, image display (URL/Base64).
+- New "Downstream Management" page for toggling exposed downstream APIs per endpoint.
+- Docker deployment solution and GHCR auto-publish workflow.
 
-下游管理截图：  
-![下游管理截图](docs/images/2image.png)
+Downstream management screenshot:  
+![Downstream management screenshot](docs/images/2image.png)
 
-## 下游接口列表
+## Downstream Endpoints
 
-| 接口 | 路径 | 开关项 |
-| --- | --- | --- |
-| Chat Completions | `/v1/chat/completions` | `downstream.enable_chat_completions` |
-| Responses API | `/v1/responses` | `downstream.enable_responses` |
-| Images Generations | `/v1/images/generations` | `downstream.enable_images` |
-| Images NSFW | `/v1/images/generations/nsfw` | `downstream.enable_images_nsfw` |
-| Models | `/v1/models` | `downstream.enable_models` |
-| Files | `/v1/files` | `downstream.enable_files` |
+| Endpoint            | Path                          | Config Toggle                          |
+|---------------------|-------------------------------|----------------------------------------|
+| Chat Completions    | `/v1/chat/completions`        | `downstream.enable_chat_completions`   |
+| Responses API       | `/v1/responses`               | `downstream.enable_responses`          |
+| Images Generations  | `/v1/images/generations`      | `downstream.enable_images`             |
+| Images NSFW         | `/v1/images/generations/nsfw` | `downstream.enable_images_nsfw`        |
+| Models              | `/v1/models`                  | `downstream.enable_models`             |
+| Files               | `/v1/files`                   | `downstream.enable_files`              |
 
-后台入口：`/admin`（Token 管理 / 配置管理 / 缓存管理 / 下游管理 / 对话）。
+Admin dashboard: `/admin` (Token Management / Configuration / Cache / Downstream / Dialog).
 
-## 部署
+## Deployment
 
-### 1) 单二进制部署
+### 1) Single Binary Deployment
 
 ```bash
-# 假设当前目录下已有 grok2api-rs 与 config.defaults.toml
+# Assuming grok2api-rs and config.defaults.toml are in the current directory
 mkdir -p data
 cp config.defaults.toml data/config.toml
 cp /path/to/token.json data/token.json
@@ -55,7 +55,7 @@ chmod +x ./grok2api-rs
 SERVER_HOST=0.0.0.0 SERVER_PORT=8000 ./grok2api-rs
 ```
 
-目录参考：
+Directory structure:
 
 ```text
 grok2api-rs/
@@ -65,10 +65,10 @@ grok2api-rs/
    └─ token.json
 ```
 
-系统部署执行截图：  
-![系统部署执行截图](docs/images/7image.png)
+System deployment screenshot:  
+![System deployment screenshot](docs/images/7image.png)
 
-### 2) Docker 快捷部署（推荐）
+### 2) Docker Quick Deployment (Recommended)
 
 ```bash
 git clone https://github.com/XeanYu/grok2api-rs.git
@@ -78,25 +78,25 @@ mkdir -p data
 cp config.defaults.toml data/config.toml
 cp data/token.json.example data/token.json
 
-# 也可不手动复制 token.json，容器首次启动会自动创建 {"ssoBasic": []}
+# You can skip copying token.json manually; the container will auto-create {"ssoBasic": []} on first start
 docker compose pull
 docker compose up -d
 docker compose logs -f
 ```
 
-然后打开后台导入 token：
+Then open the admin dashboard to import tokens:
 
 - `http://127.0.0.1:8000/admin`
-- 进入「Token 管理」导入/粘贴 `ssoBasic`
+- Go to "Token Management" to import/paste `ssoBasic`
 
-本地构建镜像后运行：
+Build and run local image:
 
 ```bash
 docker build -t grok2api-rs:local .
 IMAGE=grok2api-rs:local docker compose up -d
 ```
 
-### 3) 使用最新镜像升级
+### 3) Upgrade Using Latest Image
 
 ```bash
 docker pull ghcr.io/xeanyu/grok2api-rs:latest
@@ -108,29 +108,29 @@ docker run -d \
   ghcr.io/xeanyu/grok2api-rs:latest
 ```
 
-### 4) GitHub Actions 自动发布镜像
+### 4) GitHub Actions Auto-Publish
 
-仓库已包含 `.github/workflows/docker-publish.yml`：
+The repository includes `.github/workflows/docker-publish.yml`:
 
-- push 到 `main`：发布 `ghcr.io/xeanyu/grok2api-rs:latest`
-- push tag（例如 `v0.2.0`）：发布 `ghcr.io/xeanyu/grok2api-rs:v0.2.0` 等同名 tag 镜像
-- 多架构：`linux/amd64` + `linux/arm64`
+- Push to `main`: publishes `ghcr.io/xeanyu/grok2api-rs:latest`
+- Push tag (e.g., `v0.2.0`): publishes `ghcr.io/xeanyu/grok2api-rs:v0.2.0` with matching tag
+- Multi-architecture: `linux/amd64` + `linux/arm64`
 
-## 编译
+## Building
 
 ```bash
-# 本地 release
+# Local release build
 cargo build --release
 
-# Linux x86_64 musl 静态构建（需要 cargo-zigbuild + zig）
+# Linux x86_64 musl static build (requires cargo-zigbuild + zig)
 cargo zigbuild --release --target x86_64-unknown-linux-musl
 ```
 
-## 配置
+## Configuration
 
-将 `config.defaults.toml` 复制为 `data/config.toml` 后按需调整。
+Copy `config.defaults.toml` to `data/config.toml` and adjust as needed.
 
-完整示例：
+Full example:
 
 ```toml
 [grok]
@@ -193,15 +193,15 @@ enable_models = true
 enable_files = true
 ```
 
-关键项说明：
+Key configuration options:
 
-- `app.api_key`：下游调用的 Bearer Token（留空表示不校验）。
-- `app.app_key`：后台登录密码。
-- `app.image_format`：默认图片返回格式（`url` / `base64`）。若请求传了 `response_format`，以请求参数为准。
-- `grok.wreq_emulation*`：上游浏览器指纹模板，可全局/Usage/NSFW 分开配置。
-- `grok.base_proxy_url` / `grok.asset_proxy_url`：可选代理地址。
+- `app.api_key`: Bearer Token for downstream calls (empty means no authentication).
+- `app.app_key`: Admin dashboard login password.
+- `app.image_format`: Default image return format (`url` / `base64`). If request includes `response_format`, the request parameter takes precedence.
+- `grok.wreq_emulation*`: Upstream browser fingerprint template, can be configured globally or separately for Usage/NSFW.
+- `grok.base_proxy_url` / `grok.asset_proxy_url`: Optional proxy addresses.
 
-## curl 示例
+## curl Examples
 
 ### Chat Completions
 
@@ -211,11 +211,11 @@ curl http://127.0.0.1:8000/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
     "model": "grok-4",
-    "messages": [{"role":"user","content":"你好"}]
+    "messages": [{"role":"user","content":"Hello"}]
   }'
 ```
 
-### Responses API（文本）
+### Responses API (Text)
 
 ```bash
 curl http://127.0.0.1:8000/v1/responses \
@@ -223,14 +223,14 @@ curl http://127.0.0.1:8000/v1/responses \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
     "model": "grok-4",
-    "input": "你好"
+    "input": "Hello"
   }'
 ```
 
-Responses 文本问答截图：  
-![Responses 文本问答截图](docs/images/3image.png)
+Responses text Q&A screenshot:  
+![Responses text Q&A screenshot](docs/images/3image.png)
 
-### Responses API（生图）
+### Responses API (Image Generation)
 
 ```bash
 curl http://127.0.0.1:8000/v1/responses \
@@ -239,15 +239,15 @@ curl http://127.0.0.1:8000/v1/responses \
   -d '{
     "model": "grok-imagine-1.0",
     "input": [
-      {"type":"input_text","text":"画一只在太空漂浮的猫"}
+      {"type":"input_text","text":"Draw a cat floating in space"}
     ]
   }'
 ```
 
-Responses 生图截图：  
-![Responses 生图截图](docs/images/4image.png)
+Responses image generation screenshot:  
+![Responses image generation screenshot](docs/images/4image.png)
 
-### NSFW 专用生图
+### NSFW Image Generation
 
 ```bash
 curl http://127.0.0.1:8000/v1/images/generations/nsfw \
@@ -255,37 +255,37 @@ curl http://127.0.0.1:8000/v1/images/generations/nsfw \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
     "model": "grok-imagine-1.0",
-    "prompt": "绘制一张夜店风格的人像海报",
+    "prompt": "Create a nightclub-style portrait poster",
     "n": 1,
     "response_format": "url"
   }'
 ```
 
-### 获取模型列表
+### Get Model List
 
 ```bash
 curl http://127.0.0.1:8000/v1/models \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
-可用模型列表截图：  
-![可用模型列表截图](docs/images/5image.png)
+Available models list screenshot:  
+![Available models list screenshot](docs/images/5image.png)
 
-sub2api 调用模型截图：  
-<img src="docs/images/6image.png" alt="sub2api 调用模型截图" width="50%">
+sub2api model call screenshot:  
+<img src="docs/images/6image.png" alt="sub2api model call screenshot" width="50%">
 
-## 与原项目的差异
+## Differences from Original Project
 
-### 新增
+### Added
 
-- `/v1/responses`（OpenAI Responses API 兼容）
-- `/v1/images/generations/nsfw`（NSFW 专用图片生成）
-- 管理后台新增「下游管理」「对话」页面
-- 对话页面支持 SSE、Markdown 与图文混排
-- 统一 `wreq` 上游链路（不依赖外部 `curl-impersonate`）
-- Docker 部署与 GHCR 自动发布工作流
+- `/v1/responses` (OpenAI Responses API compatible)
+- `/v1/images/generations/nsfw` (NSFW-specific image generation)
+- Admin dashboard with "Downstream Management" and "Dialog" pages
+- Dialog page supports SSE, Markdown, and mixed text/image display
+- Unified `wreq` upstream chain (no external `curl-impersonate` dependency)
+- Docker deployment and GHCR auto-publish workflow
 
-### 暂缺
+### Not Yet Implemented
 
-- 当前仅支持本地存储（`SERVER_STORAGE_TYPE` 其他值会降级）
-- 暂未提供多节点/分布式部署能力（当前以单实例为主）
+- Currently only supports local storage (`SERVER_STORAGE_TYPE` other values will fallback)
+- No multi-node/distributed deployment capability yet (currently single-instance focused)

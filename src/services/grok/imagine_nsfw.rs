@@ -687,7 +687,7 @@ async fn do_generate(
 
                 if let Some(medium_at) = medium_received_time {
                     if progress.completed == 0 && medium_at.elapsed() > Duration::from_secs(15) {
-                        return ImagineResult::failed("blocked", "生成被阻止，无法获取最终图片");
+                        return ImagineResult::failed("blocked", "Generation blocked, unable to get final image");
                     }
                 }
             }
@@ -707,7 +707,7 @@ async fn do_generate(
             Err(_) => {
                 if let Some(medium_at) = medium_received_time {
                     if progress.completed == 0 && medium_at.elapsed() > Duration::from_secs(10) {
-                        return ImagineResult::failed("blocked", "生成被阻止，无法获取最终图片");
+                        return ImagineResult::failed("blocked", "Generation blocked, unable to get final image");
                     }
                 }
                 if progress.completed > 0 && last_activity.elapsed() > Duration::from_secs(10) {
@@ -724,9 +724,9 @@ async fn do_generate(
     } else if let Some((code, msg)) = error_info {
         ImagineResult::failed(code, msg)
     } else if progress.check_blocked() {
-        ImagineResult::failed("blocked", "生成被阻止，无法获取最终图片")
+        ImagineResult::failed("blocked", "Generation blocked, unable to retrieve final image")
     } else {
-        ImagineResult::failed("generation_failed", "未收到图片数据")
+        ImagineResult::failed("generation_failed", "No image data received")
     }
 }
 
@@ -738,7 +738,7 @@ pub async fn generate(
 ) -> ImagineResult {
     let tokens = get_sso_tokens().await;
     if tokens.is_empty() {
-        return ImagineResult::failed("no_available_sso", "没有可用的 SSO");
+        return ImagineResult::failed("no_available_sso", "No available SSO");
     }
 
     let default_count: u32 = get_config("grok.imagine_default_image_count", 4u32).await;
@@ -761,7 +761,7 @@ pub async fn generate(
     for _attempt in 0..max_retries {
         let Some(current_sso) = get_next_sso(&tokens, daily_limit).await else {
             return last_error
-                .unwrap_or_else(|| ImagineResult::failed("no_available_sso", "没有可用的 SSO"));
+                .unwrap_or_else(|| ImagineResult::failed("no_available_sso", "No available SSO"));
         };
 
         if get_age_verified(&current_sso).await == 0 {
@@ -791,11 +791,11 @@ pub async fn generate(
 
         if error_code == "blocked" {
             blocked_retries += 1;
-            mark_failed(&current_sso, "blocked - 无法生成最终图片").await;
+            mark_failed(&current_sso, "blocked - unable to generate final image").await;
             if blocked_retries >= max_blocked_retries {
                 return ImagineResult::failed(
                     "blocked",
-                    format!("连续 {max_blocked_retries} 次被 blocked，请稍后重试"),
+                    format!("Blocked {max_blocked_retries} times consecutively, please try again later"),
                 );
             }
             continue;
@@ -810,5 +810,5 @@ pub async fn generate(
         return result;
     }
 
-    last_error.unwrap_or_else(|| ImagineResult::failed("generation_failed", "所有重试都失败了"))
+    last_error.unwrap_or_else(|| ImagineResult::failed("generation_failed", "All retries failed"))
 }

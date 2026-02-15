@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Grok2API-rs - 对话</title>
+  <title>Grok2API-rs - Dialog</title>
   <link rel="icon" href="/static/favicon/favicon.ico">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-sans/style.css" rel="stylesheet">
@@ -21,8 +21,8 @@
   <main class="space-y-6 flex-1 container mx-auto max-w-[1360px] px-6 py-8 fade-in">
     <div class="space-y-4">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight">对话</h2>
-        <p class="text-[var(--accents-4)] mt-1 text-sm">左侧查看对话，右侧配置接口并输入提示词（支持文本流式与图片渲染）。</p>
+        <h2 class="text-2xl font-semibold tracking-tight">Dialog</h2>
+        <p class="text-[var(--accents-4)] mt-1 text-sm">View conversation on the left, configure API and enter prompts on the right (supports text streaming and image rendering).</p>
       </div>
 
       <div class="dialog-layout">
@@ -44,25 +44,25 @@
               </div>
 
               <div id="model-group">
-                <label class="dialog-label" for="model-input">模型</label>
-                <input id="model-input" type="text" class="geist-input" value="grok-4" placeholder="例如 grok-4">
+                <label class="dialog-label" for="model-input">Model</label>
+                <input id="model-input" type="text" class="geist-input" value="grok-4" placeholder="e.g. grok-4">
               </div>
 
               <div id="stream-group">
-                <label class="dialog-label" for="stream-toggle">流式</label>
+                <label class="dialog-label" for="stream-toggle">Stream</label>
                 <label class="inline-flex items-center gap-2 h-[34px]">
                   <input id="stream-toggle" type="checkbox" class="checkbox" checked>
-                  <span class="text-xs text-[var(--accents-5)]">启用 SSE</span>
+                  <span class="text-xs text-[var(--accents-5)]">Enable SSE</span>
                 </label>
               </div>
 
               <div id="image-params" class="dialog-form-grid image-only hidden">
                 <div>
-                  <label class="dialog-label" for="image-count">图片数量</label>
+                  <label class="dialog-label" for="image-count">Image Count</label>
                   <input id="image-count" type="number" min="1" max="4" value="1" class="geist-input">
                 </div>
                 <div>
-                  <label class="dialog-label" for="image-size">尺寸</label>
+                  <label class="dialog-label" for="image-size">Size</label>
                   <select id="image-size" class="geist-input">
                     <option value="1024x1024">1024x1024</option>
                     <option value="1024x1792">1024x1792</option>
@@ -70,7 +70,7 @@
                   </select>
                 </div>
                 <div>
-                  <label class="dialog-label" for="response-format">返回格式</label>
+                  <label class="dialog-label" for="response-format">Response Format</label>
                   <select id="response-format" class="geist-input">
                     <option value="url">url</option>
                     <option value="b64_json">b64_json</option>
@@ -81,11 +81,11 @@
           </div>
 
           <div class="dialog-card">
-            <label class="dialog-label" for="user-input">提示词</label>
-            <textarea id="user-input" class="geist-input dialog-textarea" placeholder="输入你的问题或提示词..." rows="8"></textarea>
+            <label class="dialog-label" for="user-input">Prompt</label>
+            <textarea id="user-input" class="geist-input dialog-textarea" placeholder="Enter your question or prompt..." rows="8"></textarea>
             <div class="flex items-center justify-end gap-2 mt-3">
-              <button id="clear-btn" type="button" class="geist-button-outline text-xs px-3">清空对话</button>
-              <button id="send-btn" type="button" class="geist-button text-xs px-4">发送</button>
+              <button id="clear-btn" type="button" class="geist-button-outline text-xs px-3">Clear</button>
+              <button id="send-btn" type="button" class="geist-button text-xs px-4">Send</button>
             </div>
           </div>
         </aside>

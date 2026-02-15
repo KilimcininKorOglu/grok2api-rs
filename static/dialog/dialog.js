@@ -40,7 +40,7 @@ function applyApiMode() {
   if (modelGroup) {
     const label = modelGroup.querySelector('label');
     if (label) {
-      label.textContent = textMode ? '模型' : '模型（可选）';
+      label.textContent = textMode ? 'Model' : 'Model (optional)';
     }
   }
 
@@ -57,7 +57,7 @@ function ensureEmptyState() {
   const empty = document.createElement('div');
   empty.className = 'dialog-empty';
   empty.id = 'dialog-empty';
-  empty.textContent = '开始一段对话吧。';
+  empty.textContent = 'Start a conversation.';
   container.appendChild(empty);
 }
 
@@ -82,7 +82,7 @@ function createMessageBubble(role) {
 
   const roleEl = document.createElement('div');
   roleEl.className = 'dialog-role';
-  roleEl.textContent = role === 'user' ? '用户' : '助手';
+  roleEl.textContent = role === 'user' ? 'User' : 'Assistant';
 
   const textEl = document.createElement('div');
   textEl.className = 'dialog-text';
@@ -400,7 +400,7 @@ async function readSseStream(response, api, onDelta) {
 async function sendText(api, prompt) {
   const model = byId('model-input')?.value?.trim() || '';
   if (!model) {
-    showToast('文本接口需要填写模型', 'error');
+    showToast('Model is required for text API', 'error');
     return;
   }
 
@@ -426,7 +426,7 @@ async function sendText(api, prompt) {
 
   if (!res.ok) {
     const err = await parseErrorResponse(res);
-    setBubbleContent(assistantBubble, `请求失败：${err}`, []);
+    setBubbleContent(assistantBubble, `Request failed: ${err}`, []);
     throw new Error(err);
   }
 
@@ -446,7 +446,7 @@ async function sendText(api, prompt) {
   }
 
   const parsed = extractMarkdownImages(finalText);
-  setBubbleContent(assistantBubble, parsed.text || '(空响应)', parsed.images);
+  setBubbleContent(assistantBubble, parsed.text || '(empty response)', parsed.images);
   textHistory.push({ role: 'assistant', content: finalText });
 }
 
@@ -468,7 +468,7 @@ async function sendImage(api, prompt) {
     payload.model = model;
   }
 
-  const assistantBubble = appendMessage('assistant', '生成中...', []);
+  const assistantBubble = appendMessage('assistant', 'Generating...', []);
 
   const res = await fetch(getApiPath(api), {
     method: 'POST',
@@ -481,7 +481,7 @@ async function sendImage(api, prompt) {
 
   if (!res.ok) {
     const err = await parseErrorResponse(res);
-    setBubbleContent(assistantBubble, `请求失败：${err}`, []);
+    setBubbleContent(assistantBubble, `Request failed: ${err}`, []);
     throw new Error(err);
   }
 
@@ -490,9 +490,9 @@ async function sendImage(api, prompt) {
   const images = list.map(normalizeImageSource).filter(Boolean);
 
   if (images.length === 0) {
-    setBubbleContent(assistantBubble, '生成完成，但未返回图片。', []);
+    setBubbleContent(assistantBubble, 'Generation complete, but no images returned.', []);
   } else {
-    setBubbleContent(assistantBubble, `生成完成，共 ${images.length} 张。`, images);
+    setBubbleContent(assistantBubble, `Generation complete, ${images.length} image(s).`, images);
   }
 }
 
@@ -504,7 +504,7 @@ async function sendMessage() {
   const prompt = input?.value?.trim() || '';
 
   if (!prompt) {
-    showToast('请输入内容', 'error');
+    showToast('Please enter content', 'error');
     return;
   }
 
@@ -522,7 +522,7 @@ async function sendMessage() {
     }
     if (input) input.value = '';
   } catch (err) {
-    showToast(String(err?.message || err || '请求失败'), 'error');
+    showToast(String(err?.message || err || 'Request failed'), 'error');
   } finally {
     isSending = false;
     if (sendBtn) sendBtn.disabled = false;

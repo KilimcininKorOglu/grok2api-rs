@@ -128,7 +128,7 @@ async fn update_config_api(
     update_config(&data)
         .await
         .map_err(|e| ApiError::server(e.to_string()))?;
-    Ok(Json(json!({"status": "success", "message": "配置已更新"})).into_response())
+    Ok(Json(json!({"status": "success", "message": "Configuration updated"})).into_response())
 }
 
 async fn get_storage_api(headers: HeaderMap) -> Result<Response, ApiError> {
@@ -161,7 +161,7 @@ async fn update_tokens_api(
         .map_err(|e| ApiError::server(e.to_string()))?;
     let mgr = get_token_manager().await;
     mgr.lock().await.reload().await;
-    Ok(Json(json!({"status": "success", "message": "Token 已更新"})).into_response())
+    Ok(Json(json!({"status": "success", "message": "Token updated"})).into_response())
 }
 
 #[derive(Debug, Deserialize)]
@@ -220,7 +220,7 @@ async fn refresh_tokens_api(
     let mut response = json!({"status": "success", "results": out});
     if truncated {
         response["warning"] = JsonValue::String(format!(
-            "数量超出限制，仅处理前 {max_tokens} 个（共 {original_count} 个）"
+            "Limit exceeded, only processed first {max_tokens} (total {original_count})"
         ));
     }
     Ok(Json(response).into_response())
@@ -335,10 +335,10 @@ async fn refresh_tokens_api_async(
         });
         if truncated_for_spawn {
             result["warning"] = JsonValue::String(format!(
-                "数量超出限制，仅处理前 {max_tokens_for_spawn} 个（共 {original_count_for_spawn} 个）"
+                "Limit exceeded, only processed first {max_tokens_for_spawn} (total {original_count_for_spawn})"
             ));
         }
-        task_for_spawn.lock().await.finish(result, if truncated_for_spawn { Some(format!("数量超出限制，仅处理前 {max_tokens_for_spawn} 个（共 {original_count_for_spawn} 个）")) } else { None });
+        task_for_spawn.lock().await.finish(result, if truncated_for_spawn { Some(format!("Limit exceeded, only processed first {max_tokens_for_spawn} (total {original_count_for_spawn})")) } else { None });
         tokio::spawn(expire_task(task_id_for_spawn.clone(), 300));
     });
 
@@ -458,7 +458,7 @@ async fn enable_nsfw_api(
     });
     if truncated {
         response["warning"] = JsonValue::String(format!(
-            "数量超出限制，仅处理前 {max_tokens} 个（共 {original_count} 个）"
+            "Limit exceeded, only processed first {max_tokens} (total {original_count})"
         ));
     }
     Ok(Json(response).into_response())
@@ -588,14 +588,14 @@ async fn enable_nsfw_api_async(
         });
         if truncated {
             result["warning"] = JsonValue::String(format!(
-                "数量超出限制，仅处理前 {max_tokens} 个（共 {original_count} 个）"
+                "Limit exceeded, only processed first {max_tokens} (total {original_count})"
             ));
         }
         task_for_spawn.lock().await.finish(
             result.clone(),
             if truncated {
                 Some(format!(
-                    "数量超出限制，仅处理前 {max_tokens} 个（共 {original_count} 个）"
+                    "Limit exceeded, only processed first {max_tokens} (total {original_count})"
                 ))
             } else {
                 None
@@ -743,7 +743,7 @@ async fn get_cache_stats_api(
     });
     if truncated {
         response["warning"] = JsonValue::String(format!(
-            "数量超出限制，仅处理前 {max_tokens} 个（共 {original_count} 个）"
+            "Limit exceeded, only processed first {max_tokens} (total {original_count})"
         ));
     }
     Ok(Json(response).into_response())
@@ -862,7 +862,7 @@ async fn clear_online_cache_api(
         let mut response = json!({"status": "success", "results": results});
         if truncated {
             response["warning"] = JsonValue::String(format!(
-                "数量超出限制，仅处理前 {max_tokens} 个（共 {original_count} 个）"
+                "Limit exceeded, only processed first {max_tokens} (total {original_count})"
             ));
         }
         return Ok(Json(response).into_response());
@@ -970,10 +970,10 @@ async fn clear_online_cache_api_async(
         let mut result = json!({"status": "success", "summary": {"total": token_list_for_spawn.len(), "ok": ok_count, "fail": fail_count}, "results": out});
         if truncated_for_spawn {
             result["warning"] = JsonValue::String(format!(
-                "数量超出限制，仅处理前 {max_tokens_for_spawn} 个（共 {original_count_for_spawn} 个）"
+                "Limit exceeded, only processed first {max_tokens_for_spawn} (total {original_count_for_spawn})"
             ));
         }
-        task_for_spawn.lock().await.finish(result, if truncated_for_spawn { Some(format!("数量超出限制，仅处理前 {max_tokens_for_spawn} 个（共 {original_count_for_spawn} 个）")) } else { None });
+        task_for_spawn.lock().await.finish(result, if truncated_for_spawn { Some(format!("Limit exceeded, only processed first {max_tokens_for_spawn} (total {original_count_for_spawn})")) } else { None });
         tokio::spawn(expire_task(task_id_for_spawn.clone(), 300));
     });
 
@@ -1110,10 +1110,10 @@ async fn load_online_cache_api_async(
         });
         if truncated_for_spawn {
             result["warning"] = JsonValue::String(format!(
-                "数量超出限制，仅处理前 {max_tokens_for_spawn} 个（共 {original_count_for_spawn} 个）"
+                "Limit exceeded, only processed first {max_tokens_for_spawn} (total {original_count_for_spawn})"
             ));
         }
-        task_for_spawn.lock().await.finish(result.clone(), if truncated_for_spawn { Some(format!("数量超出限制，仅处理前 {max_tokens_for_spawn} 个（共 {original_count_for_spawn} 个）")) } else { None });
+        task_for_spawn.lock().await.finish(result.clone(), if truncated_for_spawn { Some(format!("Limit exceeded, only processed first {max_tokens_for_spawn} (total {original_count_for_spawn})")) } else { None });
         tokio::spawn(expire_task(task_id_for_spawn.clone(), 300));
     });
 
