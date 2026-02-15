@@ -9,5 +9,6 @@
 /target
 /dist
 /data
+/docker-data
 
 /docs

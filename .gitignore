@@ -1,0 +1,5 @@
+/target
+/data
+/docker-data
+*.log
+.DS_Store

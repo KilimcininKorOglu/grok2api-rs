@@ -10,4 +10,4 @@ services:
       SERVER_PORT: 8000
       RUST_LOG: ${RUST_LOG:-info}
     volumes:
-      - ./data:/app/data
+      - ./docker-data:/app/data
