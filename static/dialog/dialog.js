@@ -66,6 +66,7 @@ function updateModelDropdown() {
 
   const api = byId('api-select')?.value || 'chat';
   const isImage = api === 'images' || api === 'images_nsfw';
+  const isResponses = api === 'responses';
 
   const currentValue = select.value;
   select.innerHTML = '';
@@ -79,6 +80,9 @@ function updateModelDropdown() {
   }
 
   const filtered = allModels.filter(m => {
+    if (isResponses) {
+      return true;
+    }
     if (isImage) {
       return m.id.includes('imagine');
     }
