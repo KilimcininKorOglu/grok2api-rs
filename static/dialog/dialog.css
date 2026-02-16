@@ -193,6 +193,14 @@
   border-radius: 8px;
 }
 
+.dialog-text video {
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
 .dialog-textarea {
   min-height: 180px;
   resize: vertical;

@@ -183,8 +183,19 @@ function renderMarkdown(text) {
     return '';
   }
 
+  // Extract and render video tags
+  const videoBlocks = [];
+  let processed = raw.replace(/<video[^>]*>[\s\S]*?<\/video>/gi, (match) => {
+    const idx = videoBlocks.length;
+    videoBlocks.push(match);
+    return `@@VIDEO_BLOCK_${idx}@@`;
+  });
+
+  // Remove <think>...</think> blocks (internal reasoning)
+  processed = processed.replace(/<think>[\s\S]*?<\/think>/gi, '');
+
   const codeBlocks = [];
-  let source = raw.replace(/```([a-zA-Z0-9_-]+)?\n([\s\S]*?)```/g, (_all, language, code) => {
+  let source = processed.replace(/```([a-zA-Z0-9_-]+)?\n([\s\S]*?)```/g, (_all, language, code) => {
     const idx = codeBlocks.length;
     const lang = (language || '').trim();
     const langBadge = lang
@@ -225,6 +236,14 @@ function renderMarkdown(text) {
       flushParagraph();
       closeLists();
       html.push(`@@CODE_BLOCK_${codeMatch[1]}@@`);
+      return;
+    }
+
+    const videoMatch = line.match(/@@VIDEO_BLOCK_(\d+)@@/);
+    if (videoMatch) {
+      flushParagraph();
+      closeLists();
+      html.push(`@@VIDEO_BLOCK_${videoMatch[1]}@@`);
       return;
     }
 
@@ -291,6 +310,10 @@ function renderMarkdown(text) {
   rendered = rendered.replace(/@@CODE_BLOCK_(\d+)@@/g, (_all, idx) => {
     const i = Number(idx);
     return codeBlocks[i] || '';
+  });
+  rendered = rendered.replace(/@@VIDEO_BLOCK_(\d+)@@/g, (_all, idx) => {
+    const i = Number(idx);
+    return videoBlocks[i] || '';
   });
 
   return rendered;
