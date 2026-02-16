@@ -1,6 +1,7 @@
 let apiKey = '';
 let textHistory = [];
 let isSending = false;
+let allModels = [];
 
 const byId = (id) => document.getElementById(id);
 
@@ -32,7 +33,6 @@ function applyApiMode() {
   const streamGroup = byId('stream-group');
   const imageParams = byId('image-params');
   const modelGroup = byId('model-group');
-  const modelInput = byId('model-input');
 
   if (streamGroup) streamGroup.classList.toggle('hidden', !textMode);
   if (imageParams) imageParams.classList.toggle('hidden', textMode);
@@ -44,8 +44,66 @@ function applyApiMode() {
     }
   }
 
-  if (modelInput && !modelInput.value.trim()) {
-    modelInput.value = 'grok-4';
+  updateModelDropdown();
+}
+
+async function fetchModels() {
+  try {
+    const res = await fetch('/v1/models', {
+      headers: buildAuthHeaders(apiKey)
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return Array.isArray(json.data) ? json.data : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function updateModelDropdown() {
+  const select = byId('model-select');
+  if (!select) return;
+
+  const api = byId('api-select')?.value || 'chat';
+  const isImage = api === 'images' || api === 'images_nsfw';
+
+  const currentValue = select.value;
+  select.innerHTML = '';
+
+  if (allModels.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No models available';
+    select.appendChild(opt);
+    return;
+  }
+
+  const filtered = allModels.filter(m => {
+    if (isImage) {
+      return m.id.includes('imagine');
+    }
+    return !m.id.includes('imagine');
+  });
+
+  if (filtered.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No models available';
+    select.appendChild(opt);
+    return;
+  }
+
+  filtered.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.id;
+    select.appendChild(opt);
+  });
+
+  if (filtered.some(m => m.id === currentValue)) {
+    select.value = currentValue;
+  } else {
+    select.value = filtered[0]?.id || '';
   }
 }
 
@@ -398,7 +456,7 @@ async function readSseStream(response, api, onDelta) {
 }
 
 async function sendText(api, prompt) {
-  const model = byId('model-input')?.value?.trim() || '';
+  const model = byId('model-select')?.value || '';
   if (!model) {
     showToast('Model is required for text API', 'error');
     return;
@@ -451,7 +509,7 @@ async function sendText(api, prompt) {
 }
 
 async function sendImage(api, prompt) {
-  const model = byId('model-input')?.value?.trim() || '';
+  const model = byId('model-select')?.value || '';
   const n = Math.max(1, Math.min(4, Number(byId('image-count')?.value || 1)));
   const size = byId('image-size')?.value || '1024x1024';
   const responseFormat = byId('response-format')?.value || 'url';
@@ -539,6 +597,8 @@ function clearDialog() {
 async function init() {
   apiKey = await ensureApiKey();
   if (apiKey === null) return;
+
+  allModels = await fetchModels();
 
   ensureEmptyState();
   applyApiMode();
