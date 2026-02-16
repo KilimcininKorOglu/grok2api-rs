@@ -201,6 +201,36 @@
   margin-top: 8px;
 }
 
+.dialog-think {
+  background: #f8f9fa;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+.dialog-think summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--accents-5);
+  font-weight: 500;
+  user-select: none;
+}
+
+.dialog-think summary:hover {
+  color: var(--accents-6);
+}
+
+.dialog-think-content {
+  padding: 0 12px 12px;
+  color: var(--accents-5);
+  white-space: pre-wrap;
+  line-height: 1.5;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-top: 0;
+}
+
 .dialog-textarea {
   min-height: 180px;
   resize: vertical;

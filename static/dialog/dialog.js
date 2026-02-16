@@ -191,8 +191,13 @@ function renderMarkdown(text) {
     return `@@VIDEO_BLOCK_${idx}@@`;
   });
 
-  // Remove <think>...</think> blocks (internal reasoning)
-  processed = processed.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  // Extract and style <think>...</think> blocks (model reasoning)
+  const thinkBlocks = [];
+  processed = processed.replace(/<think>([\s\S]*?)<\/think>/gi, (_, content) => {
+    const idx = thinkBlocks.length;
+    thinkBlocks.push(`<details class="dialog-think"><summary>Thinking</summary><div class="dialog-think-content">${escapeHtml(content.trim())}</div></details>`);
+    return `@@THINK_BLOCK_${idx}@@`;
+  });
 
   const codeBlocks = [];
   let source = processed.replace(/```([a-zA-Z0-9_-]+)?\n([\s\S]*?)```/g, (_all, language, code) => {
@@ -244,6 +249,14 @@ function renderMarkdown(text) {
       flushParagraph();
       closeLists();
       html.push(`@@VIDEO_BLOCK_${videoMatch[1]}@@`);
+      return;
+    }
+
+    const thinkMatch = line.match(/@@THINK_BLOCK_(\d+)@@/);
+    if (thinkMatch) {
+      flushParagraph();
+      closeLists();
+      html.push(`@@THINK_BLOCK_${thinkMatch[1]}@@`);
       return;
     }
 
@@ -314,6 +327,10 @@ function renderMarkdown(text) {
   rendered = rendered.replace(/@@VIDEO_BLOCK_(\d+)@@/g, (_all, idx) => {
     const i = Number(idx);
     return videoBlocks[i] || '';
+  });
+  rendered = rendered.replace(/@@THINK_BLOCK_(\d+)@@/g, (_all, idx) => {
+    const i = Number(idx);
+    return thinkBlocks[i] || '';
   });
 
   return rendered;
