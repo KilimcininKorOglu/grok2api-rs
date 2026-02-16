@@ -512,7 +512,8 @@ async function sendText(api, prompt) {
   const payload = {
     model,
     messages: textHistory,
-    stream: streamEnabled
+    stream: streamEnabled,
+    thinking: 'auto'
   };
 
   const assistantBubble = appendMessage('assistant', streamEnabled ? '...' : '', []);

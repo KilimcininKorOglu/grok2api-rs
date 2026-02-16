@@ -218,8 +218,31 @@ impl StreamProcessor {
                     if let Some(token) = token_val.as_str() {
                         if !token.is_empty() && !self.filter_tags.iter().any(|t| token.contains(t)) {
                             let id = self.response_id.clone().unwrap_or_else(|| format!("chatcmpl-{}", uuid::Uuid::new_v4().simple()));
-                            let chunk = self.base.sse_chunk(&id, &self.fingerprint, Some(token), None, None);
-                            yield Ok(Bytes::from(chunk));
+                            
+                            // Check if this is a thinking token (for thinking models)
+                            let is_thinking = resp.get("isThinking").and_then(|v| v.as_bool()).unwrap_or(false);
+                            
+                            if self.show_think && is_thinking {
+                                // Open think tag if not already opened
+                                if !self.think_opened {
+                                    let chunk = self.base.sse_chunk(&id, &self.fingerprint, Some("<think>\n"), None, None);
+                                    self.think_opened = true;
+                                    yield Ok(Bytes::from(chunk));
+                                }
+                                // Send thinking content
+                                let chunk = self.base.sse_chunk(&id, &self.fingerprint, Some(token), None, None);
+                                yield Ok(Bytes::from(chunk));
+                            } else if !is_thinking {
+                                // Close think tag if it was opened and we're now in final response
+                                if self.think_opened && self.show_think {
+                                    let chunk = self.base.sse_chunk(&id, &self.fingerprint, Some("\n</think>\n"), None, None);
+                                    self.think_opened = false;
+                                    yield Ok(Bytes::from(chunk));
+                                }
+                                // Send final response content
+                                let chunk = self.base.sse_chunk(&id, &self.fingerprint, Some(token), None, None);
+                                yield Ok(Bytes::from(chunk));
+                            }
                         }
                     }
                 }
